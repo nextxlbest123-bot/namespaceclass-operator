@@ -10,8 +10,6 @@ A small operator that injects resource templates into namespaces that opt-in by 
 2. Install the CRD and examples:
    - kubectl apply -f config/crd/bases/core.akuity.io_namespaceclasses.yaml
    - kubectl apply -f test/
-3. Create a namespace that opts into a class:
-   - kubectl create ns demo --dry-run=client -o yaml | kubectl label -f - namespaceclass.akuity.io/name=public-network -o yaml | kubectl apply -f -
 
 ## Behavior summary
 - Templates under a `NamespaceClass` are rendered into any namespace labeled with that class.
