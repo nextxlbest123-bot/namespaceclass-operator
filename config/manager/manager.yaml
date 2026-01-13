@@ -32,7 +32,8 @@ spec:
           image: ''
           imagePullPolicy: IfNotPresent
           args:
-            - "--metrics-bind-address=:8080"
+            - "concurrent-ns-reconciles=10"
+            - "concurrent-nsclass-reconciles=5"
             - "--health-probe-addr=:8081"
             - "--leader-elect=true"
             - "--leader-elect-resource-name=namespaceclass-operator-lock"

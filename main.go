@@ -37,7 +37,7 @@ func main() {
 
 	//concurrentNsReconciles and concurrentNsClassReconciles are used to set the MaxConcurrentReconciles.
 	flag.IntVar(&concurrentNsReconciles, "concurrent-ns-reconciles", 10, "The max number of concurrent Reconciles for Namespace objects.")
-	flag.IntVar(&concurrentNsClassReconciles, "concurrent-nsclass-reconciles", 2, "The max number of concurrent Reconciles for NamespaceClass objects.")
+	flag.IntVar(&concurrentNsClassReconciles, "concurrent-nsclass-reconciles", 5, "The max number of concurrent Reconciles for NamespaceClass objects.")
 	opts := zap.Options{Development: true}
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
