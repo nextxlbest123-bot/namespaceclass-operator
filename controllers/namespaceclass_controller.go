@@ -385,19 +385,13 @@ func (r *NamespaceReconciler) setNamespaceInventory(ctx context.Context, ns *cor
 	}
 
 	if items == nil || len(items) == 0 {
-		// 【关键点】在 SSA 中，如果想删除某些 Key
-		// 我们可以将 Annotations 设置为一个空 map 并在 Patch 选项中指定
-		// 或者更简单地，使用这种方式让 SSA 知道我们要清空这两个 key
-		patch.Annotations = map[string]string{
-			InventoryAnnotation:     "", // 在某些配置下 SSA 可能会保留 key，
-			AttachedClassAnnotation: "", // 建议使用下面的 Extract 模式或直接用策略
-		}
-		// 对于“删除”操作，如果你想彻底从元数据中抹除 Key，
-		// 在 SSA 复杂场景下通常建议直接 Patch NULL，
-		// 或者保留 RetryOnConflict 用于删除，Patch 用于更新。
 
-		// 但最简单且符合你逻辑的写法是：
-		patch.Annotations = nil // 配合特殊 Patch 选项
+		patch.Annotations = map[string]string{
+			InventoryAnnotation:     "",
+			AttachedClassAnnotation: "",
+		}
+
+		patch.Annotations = nil
 	} else {
 		b, err := json.Marshal(items)
 		if err != nil {
@@ -419,14 +413,28 @@ func (r *NamespaceReconciler) setNamespaceInventory(ctx context.Context, ns *cor
 	return r.Patch(ctx, patch, client.Apply, patchOpts, client.ForceOwnership)
 }
 
+func indexByNamespaceClassLabel(obj client.Object) []string {
+	ns := obj.(*corev1.Namespace)
+
+	if class := ns.Labels[NamespaceClassLabel]; class != "" {
+		return []string{class}
+	}
+	return []string{}
+}
+
 // findNamespacesForClass returns reconcile requests for all Namespaces referencing a specific NamespaceClass
 func (r *NamespaceReconciler) findNamespacesForClass(ctx context.Context, obj client.Object) []reconcile.Request {
 	nsClass := obj.(*akuityv1.NamespaceClass)
 	var nsList corev1.NamespaceList
-	// Find all Namespaces with matching label
-	if err := r.List(ctx, &nsList, client.MatchingLabels{NamespaceClassLabel: nsClass.Name}); err != nil {
+
+	// Use field indexer to efficiently find Namespaces with matching label
+	if err := r.List(ctx, &nsList, client.MatchingFields{
+		"namespaceClass": nsClass.Name,
+	}); err != nil {
+		log.FromContext(ctx).Error(err, "failed to list namespaces via index")
 		return []reconcile.Request{}
 	}
+
 	requests := make([]reconcile.Request, len(nsList.Items))
 	for i, ns := range nsList.Items {
 		requests[i] = reconcile.Request{NamespacedName: types.NamespacedName{Name: ns.Name}}
@@ -437,6 +445,16 @@ func (r *NamespaceReconciler) findNamespacesForClass(ctx context.Context, obj cl
 // SetupWithManager registers ns reconcilers with the controller manager
 func (r *NamespaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	r.Recorder = mgr.GetEventRecorderFor(ControllerName)
+
+	//Register field indexer for NamespaceClass label
+	if err := mgr.GetFieldIndexer().IndexField(
+		context.Background(),
+		&corev1.Namespace{},
+		"namespaceClass",
+		indexByNamespaceClassLabel,
+	); err != nil {
+		return fmt.Errorf("failed to register index: %w", err)
+	}
 
 	// Register NamespaceReconciler
 	return ctrl.NewControllerManagedBy(mgr).
@@ -454,14 +472,10 @@ func (r *NamespaceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 // SetupWithManager registers ns class reconcilers with the controller manager
 func (r *NamespaceClassReconciler) SetupWithManager(mgr ctrl.Manager) error {
 
-	classReconciler := &NamespaceClassReconciler{
-		Client: r.Client,
-		Scheme: r.Scheme,
-	}
 	return ctrl.NewControllerManagedBy(mgr).
+		For(&akuityv1.NamespaceClass{}).
 		WithOptions(controller.Options{
 			MaxConcurrentReconciles: r.MaxConcurrentReconciles,
 		}).
-		For(&akuityv1.NamespaceClass{}).
-		Complete(classReconciler)
+		Complete(r)
 }

@@ -64,7 +64,7 @@ func main() {
 	if err = (&controllers.NamespaceReconciler{
 		Client:                  mgr.GetClient(),
 		Scheme:                  mgr.GetScheme(),
-		MaxConcurrentReconciles: concurrentNsClassReconciles,
+		MaxConcurrentReconciles: concurrentNsReconciles,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create ns controller", "controller", "Namespace")
 		os.Exit(1)

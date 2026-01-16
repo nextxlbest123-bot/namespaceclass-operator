@@ -32,7 +32,8 @@ type NamespaceClassSpec struct {
 
 // NamespaceClassStatus defines the observed state of NamespaceClass
 type NamespaceClassStatus struct {
-	// Can be used to track sync status if needed
+	SyncedNamespaces []string    `json:"syncedNamespaces,omitempty"`
+	LastSyncTime     metav1.Time `json:"lastSyncTime,omitempty"`
 }
 
 // +kubebuilder:object:root=true
